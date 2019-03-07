@@ -15,7 +15,12 @@ class dtss(sp.ltisys.StateSpaceDiscrete):
     def __mul__(self,other):
         P = super().__mul__(other)
         return self.append_dt(P)
-        
+
+    def __rmul__(self,other):
+        P = super().__rmul__(other)
+        return self.append_dt(P)
+ 
+    
     def __neg__(self):
         P = super().__neg__()
         return self.append_dt(P)
@@ -32,12 +37,12 @@ def h2norm(P):
     
 def hinfnorm(P):
     A,B,C,D = extract_matrices(P)
-    nY,nX = B.shape
+    nX,nU = B.shape
     X = cv.Variable((nX,nX),PSD=True)
     gam = cv.Variable(nonneg=True)
 
     H = cv.vstack([cv.hstack([A.T*X*A-X + C.T@C, A.T*X*B + C.T@D]),
-                   cv.hstack([B.T*X*A + D.T@C, B.T*X*B + D.T@D - gam * np.eye(nY)])])
+                   cv.hstack([B.T*X*A + D.T@C, B.T*X*B + D.T@D - gam * np.eye(nU)])])
     prob = cv.Problem(cv.Minimize(gam),[H << 0])
     prob.solve()
     return np.sqrt(gam.value)
@@ -91,7 +96,17 @@ def minreal(P,tol=1e-12):
 
 specrad = lambda A : np.max(np.abs(la.eigvals(A)))
 
-def drss(nX,nY,nU,maxeig = .9,dt=1):
+def drss(nX,nU,nY,maxeig = .9,dt=1):
+    """
+    Required Parameters:
+    nX - State Dimension
+    nU - Input Dimension
+    nY - Output Dimension
+
+    Optional Parameters
+    maxeig - Maximum spectral radius (default: 0.9)
+    dt - Time Step (default: 1)
+    """
     A = rnd.randn(nX,nX)
     u = rnd.rand() * maxeig
     A = A * u / specrad(A)
@@ -135,3 +150,12 @@ def balancedRealization(P):
     T = Xrt @ U @ np.diag(S**(-1/4))
 
     return similarityTransform(Pmin,T)
+
+def inv(P):
+    A,B,C,D = extract_matrices(P)
+    Dinv = la.inv(D)
+    Ainv = A-B@Dinv@C
+    Binv = B@Dinv
+    Cinv = -Dinv@C
+
+    return dtss(Ainv,Binv,Cinv,Dinv,dt=P.dt)
