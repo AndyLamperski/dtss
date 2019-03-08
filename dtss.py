@@ -159,3 +159,12 @@ def inv(P):
     Cinv = -Dinv@C
 
     return dtss(Ainv,Binv,Cinv,Dinv,dt=P.dt)
+
+def solve_discrete_are(A,B,Q,R,S=None):
+    if S is None:
+        return la.solve_discrete_are(A,B,Q,R)
+    else:
+        G = la.solve(R,S.T)
+        Anew = A - B@G
+        Qnew = Q - G.T@R@G
+        return la.solve_discrete_are(Anew,B,Qnew,R)
