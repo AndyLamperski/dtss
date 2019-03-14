@@ -170,6 +170,32 @@ def solve_discrete_are(A,B,Q,R,S=None):
         Qnew = Q - G.T@R@G
         return la.solve_discrete_are(Anew,B,Qnew,R)
 
+def kalmanFilterMatrices(P):
+    A,B,C,D = extract_matrices(P)
+    W = B@B.T
+    V = D@D.T
+    S = B@D.T
+
+    Y = solve_discrete_are(A.T,C.T,W,V,S)
+
+    Phi = C@Y@C.T + V
+    L = la.solve(Phi,C@Y@A.T + S.T).T
+
+    return L,Y,Phi
+    
+    
+def kalmanFilterCovariance(P):
+    _,Y,_ = kalmanFilterMatrices(P)
+    return Y
+    
+def kalmanFilterResidual(P):
+    _,_,Phi = kalmanFilterMatrices(P)
+    return Phi 
+
+def kalmanGain(P):
+    L,_,_ = kalmanFilterMatrices(P)
+    return L
+    
 def conditionalEntropyRate(P,yInd,zInd):
     """
     Conditional entropy rate of y given z
@@ -184,16 +210,14 @@ def conditionalEntropyRate(P,yInd,zInd):
     
     A,B,C,D = extract_matrices(P)
 
-    W = B@B.T
 
     yzInd = list(yInd) + list(zInd)
     Dyz = D[yzInd]
     Cyz = C[yzInd]
 
-    Vyz = Dyz@Dyz.T
-    Syz = B@Dyz.T
+    Y = kalmanFilterCovariance(dtss(A,B,Cyz,Dyz,dt=P.dt))
 
-    Y = solve_discrete_are(A.T,Cyz.T,W,Vyz,Syz)
+    #Y = solve_discrete_are(A.T,Cyz.T,W,Vyz,Syz)
 
     Cy = C[yInd]
     Dy = D[yInd]
