@@ -2,6 +2,7 @@ import numpy as np
 import numpy.random as rnd
 import scipy.signal as sp
 import scipy.linalg as la
+import scipy.stats as st
 import cvxpy as cv
 
 class dtss(sp.ltisys.StateSpaceDiscrete):
@@ -168,3 +169,46 @@ def solve_discrete_are(A,B,Q,R,S=None):
         Anew = A - B@G
         Qnew = Q - G.T@R@G
         return la.solve_discrete_are(Anew,B,Qnew,R)
+
+def conditionalEntropyRate(P,yInd,zInd):
+    """
+    Conditional entropy rate of y given z
+
+    Parameters:
+    yInd - list of indices for y
+    zInd - list of indices for z
+
+    These should be distjoint lists
+    """
+
+    
+    A,B,C,D = extract_matrices(P)
+
+    W = B@B.T
+
+    yzInd = list(yInd) + list(zInd)
+    Dyz = D[yzInd]
+    Cyz = C[yzInd]
+
+    Vyz = Dyz@Dyz.T
+    Syz = B@Dyz.T
+
+    Y = solve_discrete_are(A.T,Cyz.T,W,Vyz,Syz)
+
+    Cy = C[yInd]
+    Dy = D[yInd]
+    Vy = Dy@Dy.T
+
+    Psi = Cy@Y@Cy.T + Vy
+
+    return st.multivariate_normal.entropy(cov=Psi)
+
+def conditionalDIRate(P,xInd,yInd,zInd):
+    """
+    Directed information from x to y conditioned on z.
+    """
+
+    HyGz = conditionalEntropyRate(P,yInd,zInd)
+    HyGxz = conditionalEntropyRate(P,yInd,list(xInd)+list(zInd))
+    return HyGz - HyGxz
+    
